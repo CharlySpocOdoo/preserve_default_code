@@ -30,3 +30,32 @@ class ProductTemplate(models.Model):
                 record.default_code = original_codes[record.id]
         
         return result
+
+
+class ProductProduct(models.Model):
+    _inherit = 'product.product'
+    
+    def write(self, vals):
+        """Interceptar cambios en variantes que afecten el template"""
+        # Si se está modificando default_code de una variante
+        if 'default_code' in vals:
+            # Guardar los códigos originales de los templates padre
+            template_codes = {}
+            for variant in self:
+                template = variant.product_tmpl_id
+                if template.default_code:
+                    template_codes[template.id] = template.default_code
+        
+        # Ejecutar operación original
+        result = super().write(vals)
+        
+        # Restaurar códigos de templates que se hayan borrado
+        if 'default_code' in vals:
+            for variant in self:
+                template = variant.product_tmpl_id
+                if (template.id in template_codes and 
+                    template_codes[template.id] and 
+                    not template.default_code):
+                    template.default_code = template_codes[template.id]
+        
+        return result
